@@ -1,0 +1,13 @@
+syntax: regexp
+
+# test virtualenv
+^env/
+
+# Sphinx docs
+^docs/_build/
+
+
+syntax: glob
+
+# test certificates
+*.pem
