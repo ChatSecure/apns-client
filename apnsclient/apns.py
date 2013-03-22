@@ -664,6 +664,7 @@ class Message(object):
         if 'aps' in self.extra:
             raise ValueError("Extra payload data may not contain 'aps' key.")
 
+    @property
     def tokens(self):
         """ List target device tokens. """
         return self._tokens
