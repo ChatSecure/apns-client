@@ -10,5 +10,23 @@ extend this library. Check :ref:`intro` for usage examples.
 :mod:`apnsclient` Package
 -------------------------
 
+
 .. automodule:: apnsclient.apns
-    :members: Session, APNs, Message, Result, Certificate, Connection
+
+.. autoclass:: Session
+    :members: new_connection, get_connection, outdate, shutdown
+
+.. autoclass:: APNs
+    :members: send, feedback
+
+.. autoclass:: Message
+    :members: tokens
+
+.. autoclass:: Result
+    :members: errors, failed, needs_retry, retry
+
+.. autoclass:: Certificate
+    :members: get_context
+
+.. autoclass:: Connection
+    :members: address, certificate, close, is_closed, refresh

@@ -26,7 +26,9 @@ reference to it to prevent it being garbage collected. Example::
     # For feedback or non-intensive messaging
     con = Session.new_connection("feedback_sandbox", cert_file="sandbox.pem")
 
-    # Persistent connection for intensive messaging
+    # Persistent connection for intensive messaging.
+    # Keep reference to session instance in some class static/global variable,
+    # otherwise it willbe garbage collected and all connections will be closed.
     session = Session()
     con = session.get_connection("push_sandbox", cert_file="sandbox.pem")
 
@@ -50,7 +52,7 @@ established once you actually use it. Example of sending a message::
     for code, errmsg in res.errors.items():
         print "Error: ", errmsg
 
-    # Check if there are tokens that can be re-tried
+    # Check if there are tokens that can be retried
     if res.needs_retry():
         # repeat with retry_message or reschedule your task
         retry_message = res.retry()
@@ -68,15 +70,14 @@ regularly. Example::
 
     import datetime
 
-    # for how long may connections stay open unused
+    # For how long may connections stay open unused
     delta = datetime.timedelta(minutes=5)
 
-    # ses is Session instance you keep, probably in some class static variable.
-    # the method closes all connections that have not been used in the last delta
-    # time. You may call this method at the end of your task or in a spearate
-    # periodic task. If you like threads, you may call it in a spearate maintenance
+    # Close all connections that have not been used in the last delta time.
+    # You may call this method at the end of your task or in a spearate periodic
+    # task. If you like threads, you may call it in a spearate maintenance
     # thread.
-    ses.outdate(delta)
+    session.outdate(delta)
 
     # Shutdown session if you want to close all connections. The method will wait
     # until all concurrent threads stop using connections.

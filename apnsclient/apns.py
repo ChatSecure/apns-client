@@ -39,12 +39,12 @@ class Certificate(object):
     def __init__(self, cert_string=None, cert_file=None, key_string=None, key_file=None):
         """ Provider's certificate and private key.
         
-            Your certificate will probably contain private key. Open it, it
-            should be plain text (PEM format). The certificate is enclosed in
-            ``BEGIN/END CERTIFICATE`` strings and private key is in ``BEGIN/END
-            RSA PRIVATE KEY`` section. If you do not see private key in your
-            .pem file, then you should provided it with `key_string` or
-            `key_file` argument.
+            Your certificate will probably contain the private key. Open it
+            with any text editor, it should be plain text (PEM format). The
+            certificate is enclosed in ``BEGIN/END CERTIFICATE`` strings and
+            private key is in ``BEGIN/END RSA PRIVATE KEY`` section. If you can
+            not find the private key in your .pem file, then you should
+            provide it with `key_string` or `key_file` argument.
 
             :Arguments:
                 - `cert_string` (str): certificate in PEM format from string.
@@ -107,9 +107,15 @@ class Connection(object):
     def __init__(self, address, certificate):
         """ Connection to APNs.
 
-            Because of possibly multi-threaded use you have to lock the connection
-            before use. Use the connection object within `with` statement, where
-            connection is used as context manager.
+            If your application is multi-threaded, then you have to lock this
+            connection before changing anything. Simply use the connection as
+            context manager in ``with`` statement. 
+
+            .. note::
+                You don't have to deal with locking at all if you just use
+                :class:`APNs` methods. The connection is a low-level object,
+                you may use it directly if you plan to configure it to your
+                needs (eg. SSL verification) or manually manage its state.
 
             :Arguments:
                 - `address` (tuple): address as (host, port) tuple.
@@ -428,7 +434,7 @@ class Session(object):
             :Arguments:
                 - `address` (string or tuple): target address.
                 - `certificate` (:class:`Certificate`): provider's certificate instance.
-                - `cert_params` (kwargs): :class:`Certificate` parameters to construct new if `certificate` instance is not given.
+                - `cert_params` (kwargs): :class:`Certificate` arguments, used if `certificate` instance is not given.
         """
         if isinstance(address, basestring):
             addr = cls.ADDRESSES.get(address)
@@ -462,7 +468,7 @@ class Session(object):
             :Arguments:
                 - `address` (string or tuple): target address.
                 - `certificate` (:class:`Certificate`): provider's certificate instance.
-                - `cert_params` (kwargs): :class:`Certificate` parameters to construct new if `certificate` instance is not given.
+                - `cert_params` (kwargs): :class:`Certificate` arguments, used if `certificate` instance is not given.
         """
         if isinstance(address, basestring):
             addr = self.ADDRESSES.get(address)
@@ -483,12 +489,12 @@ class Session(object):
         return self._connections[key]
 
     def outdate(self, delta):
-        """ Close connections that have been open for more than `delta` time.
+        """ Close open connections that are not used in more than `delta` time.
 
             You may call this method in a separate thread or run it in some
             periodic task. If you don't, then all connections will remain open
-            until session is garbage collected. It might be an issue if you
-            care about your server connections.
+            until session is shut down. It might be an issue if you care about
+            your open server connections.
 
             :Arguments:
                 `delta` (`timedelta`): maximum age of unused connection.
@@ -507,7 +513,12 @@ class Session(object):
                     con.release()
 
     def shutdown(self):
-        """ Shutdown all connections. """
+        """ Shutdown all connections.
+
+            Method iterates over all connections ever used and closes them one
+            by one. If connection is in use, then method will wait until consumer
+            is finished.
+        """
         to_check = self._connections.values()
         for con in to_check:
             try:
@@ -524,8 +535,20 @@ class Session(object):
 class APNs(object):
     """ APNs multicaster. """
 
-    def __init__(self, connection, packet_size=2048, tail_timeout=0.3):
+    def __init__(self, connection, packet_size=2048, tail_timeout=0.5):
         """ APNs client.
+
+            It is a good idea to keep your ``packet_size`` close to MTU for
+            better networking performance. However, if packet fails without
+            any feedback from APNs, then all device tokens in the packet will
+            be considered to have failed.
+
+            The ``tail_timeout`` argument defines timeouts for all networking
+            operations. APNs protocol does not define a *success* message, so
+            in order to be sure the batch was successfully processed, we have
+            to wait for any response at the end of :func:`send`. So, any send
+            will take time needed for sending everything plus ``tail_timeout``.
+            Blame Apple for this.
         
             :Arguments:
                 - `connection` (:class:`Connection`): the connection to talk to.
@@ -537,7 +560,15 @@ class APNs(object):
         self.tail_timeout = tail_timeout
 
     def send(self, message):
-        """ Send message. """
+        """ Send the message.
+        
+            The method will block until the whole message is sent. Method returns
+            :class:`Result` object, which you can examine for possible errors and
+            retry attempts.
+
+            :Returns:
+                :class:`Result` object with operation results.
+        """
         with self._connection:
             # ensure connection is up, may raise all kinds of exceptions
             self._connection.refresh()
@@ -585,17 +616,17 @@ class APNs(object):
     def feedback(self):
         """ Fetch feedback from APNs.
 
-            The method returns list of ``(token, datetime)`` denoting the
-            timestamp when APNs has detected the device token is not available
-            anymore, probably because application was uninstalled. You have to
-            stop sending notifications to that device token unless it has been
-            re-registered since reported timestamp.
+            The method returns generator of ``(token, datetime)`` pairs,
+            denoting the timestamp when APNs has detected the device token is
+            not available anymore, probably because application was
+            uninstalled. You have to stop sending notifications to that device
+            token unless it has been re-registered since reported timestamp.
             
             Unlike sending the message, you should fetch the feedback using
             non-cached connection. Once whole feedback has been read, this
             method will automatically close the connection.
 
-            .. note:
+            .. note::
                 On any IO/SSL error this method will simply stop iterating and
                 will close the connection. There is nothing you can do in case
                 of an error. Just let it fail, next time yo uwill fetch the
@@ -630,9 +661,9 @@ class Message(object):
     """ The notification message. """
 
     def __init__(self, tokens, alert, badge=None, sound=None, expiry=None, **extra):
-        """ New notification message.
+        """ The push notification.
 
-            Read more information `about payload
+            Read more `about payload
             <http://developer.apple.com/library/mac/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/ApplePushService/ApplePushService.html#//apple_ref/doc/uid/TP40008194-CH100-SW9>`_.
 
             :Arguments:
@@ -814,7 +845,7 @@ class Result(object):
 
             Current APNs protocols bails out on first failed device token, so
             the returned dict will contain at most 1 entry. Future extensions
-            may upgrade to multiple failures in batch. The reason is the
+            may upgrade to multiple failures in a batch. The reason is the
             integer code as described in APNs tutorial.
 
             The following codes are considered to be token failures:
@@ -829,11 +860,11 @@ class Result(object):
         return self._retry_message is not None
 
     def retry(self):
-        """ Returns message with device tokens that can be retried.
+        """ Returns :class:`Message` with device tokens that can be retried.
        
             Current APNs protocol bails out on first failure, so any device
             token after the failure should be retried. If failure was related
             to the token, then it will appear in :attr:`failed` set and will be
-            skipped by this method.
+            in most cases skipped by the retry message.
         """
         return self._retry_message
