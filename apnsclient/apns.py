@@ -451,12 +451,13 @@ class Session(object):
             Caching saves SSL handshaking time. Handshaking is lazy, it will be
             performed on first message send.
 
-            You can provide APNs address as (hostname, port) tuple or as one of the
-            strings:
-                - `push_sanbox' -- ("gateway.sandbox.push.apple.com", 2195), the default.
-                - `push_production' -- ("gateway.push.apple.com", 2195)
-                - `feedback_sandbox' -- ("gateway.push.apple.com", 2196)
-                - `feedback_production' -- ("gateway.sandbox.push.apple.com", 2196)
+            You can provide APNs address as ``(hostname, port)`` tuple or as
+            one of the strings:
+
+                - `push_sanbox` -- ``("gateway.sandbox.push.apple.com", 2195)``, the default.
+                - `push_production` -- ``("gateway.push.apple.com", 2195)``
+                - `feedback_sandbox` -- ``("gateway.push.apple.com", 2196)``
+                - `feedback_production` -- ``("gateway.sandbox.push.apple.com", 2196)``
 
             :Arguments:
                 - `address` (string or tuple): target address.
