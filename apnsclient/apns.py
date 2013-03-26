@@ -15,10 +15,10 @@
 import time
 import socket
 import datetime
-from select import select
+import select
 from struct import pack, unpack
 
-from OpenSSL import crypto, SSL
+import OpenSSL
 
 try:
     import json
@@ -31,6 +31,8 @@ try:
 except ImportError:
     import dummy_threading as _threading
 
+
+__all__ = ('Certificate', 'Connection', 'Session', 'APNs', 'Message', 'Result')
 
 
 class Certificate(object):
@@ -52,7 +54,7 @@ class Certificate(object):
                 - `key_string` (str): private key in PEM format from string.
                 - `key_file` (str): private key in PEM format from file.
         """
-        self._context = SSL.Context(SSL.SSLv3_METHOD)
+        self._context = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv3_METHOD)
         
         if cert_file:
             # we have to load certificate for equality check. there is no
@@ -60,24 +62,24 @@ class Certificate(object):
             with open(cert_file, 'rb') as fp:
                 cert_string = fp.read()
 
-        cert = crypto.load_certificate(crypto.FILETYPE_PEM, cert_string)
+        cert = OpenSSL.crypto.load_certificate(OpenSSL.crypto.FILETYPE_PEM, cert_string)
         self._context.use_certificate(cert)
 
         if not key_string and not key_file:
             # OpenSSL is smart enought to locate private key in certificate
-            pk = crypto.load_privatekey(crypto.FILETYPE_PEM, cert_string)
+            pk = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, cert_string)
             self._context.use_privatekey(pk)
         elif key_file:
-            self._context.use_privatekey_file(key_file, crypto.FILETYPE_PEM)
+            self._context.use_privatekey_file(key_file, OpenSSL.crypto.FILETYPE_PEM)
         else:
-            pk = crypto.load_privatekey(crypto.FILETYPE_PEM, key_string)
+            pk = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, key_string)
             self._context.use_privatekey(pk)
 
         # check if we are not passed some garbage
         self._context.check_privatekey()
 
         # used to compare certificates.
-        self._eqality = crypto.dump_certificate(crypto.FILETYPE_PEM, cert)
+        self._equality = OpenSSL.crypto.dump_certificate(OpenSSL.crypto.FILETYPE_PEM, cert)
 
     def get_context(self):
         """ Returns SSL context instance.
@@ -88,11 +90,11 @@ class Certificate(object):
         return self._context
 
     def __hash__(self):
-        return hash(self._eqality)
+        return hash(self._equality)
 
     def __eq__(self, other):
         if isinstance(other, Certificate):
-            return self._eqality == other._eqality
+            return self._equality == other._equality
 
         return False
 
@@ -149,7 +151,7 @@ class Connection(object):
 
     def try_acquire(self):
         """ Try to lock this connection. Returns True on success, False otherwise. """
-        return self.acquire(False)
+        return self._lock.acquire(False)
 
     def acquire(self):
         """ Lock this connection. """
@@ -219,13 +221,13 @@ class Connection(object):
                 self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.configure_socket()
 
-                self._connection = SSL.Connection(self._certificate.get_context(), self._socket)
+                self._connection = OpenSSL.SSL.Connection(self._certificate.get_context(), self._socket)
                 self.configure_connection()
                 self._connection.connect(self._address)
                 self._connection.do_handshake()
-            except Exception, e:
+            except Exception:
                 self.close()
-                raise e
+                raise
 
         self._readbuf = ""
         self._feedbackbuf = ""
@@ -245,7 +247,7 @@ class Connection(object):
         try:
             self._connection.sendall(chunk)
             return True
-        except SSL.Error:
+        except OpenSSL.SSL.Error:
             # underlying connection has been closed or failed
             self.close()
             return False
@@ -339,11 +341,11 @@ class Connection(object):
                         self.close()
 
                     return ret or None
-            except SSL.ZeroReturnError:
+            except OpenSSL.SSL.ZeroReturnError:
                 # SSL protocol alerted close. We have a nice shutdown here.
                 self.close()
                 return None
-            except SSL.WantReadError:
+            except OpenSSL.SSL.WantReadError:
                 # blocking mode and there is not enough bytes read means socket
                 # is abruptly closed (other end crashed)
                 if timeout is None:
@@ -358,7 +360,7 @@ class Connection(object):
             # note: errors is for out-of-band and other shit. not what you may
             # think an IO erro would be ;-)
             before = time.time()
-            canread, _, _ = select((self._socket, ), (), (), timeout - waited)
+            canread, _, _ = select.select((self._socket, ), (), (), timeout - waited)
             if not canread:
                 # timeout elapsed without data becoming available, bail out
                 return None
@@ -388,7 +390,7 @@ class Connection(object):
         while len(self._feedbackbuf) > 6:
             timestamp, length = unpack(">IH", self._feedbackbuf[0:6])
             if len(self._feedbackbuf) >= (6 + length):
-                token = self._feedbackbuf[6:(length + 6)].encode("hex")
+                token = self._feedbackbuf[6:(length + 6)].encode("hex").upper()
                 self._feedbackbuf = self._feedbackbuf[(length + 6):]
                 yield (token, timestamp)
             else:
@@ -432,7 +434,7 @@ class Session(object):
             you are done.
 
             :Arguments:
-                - `address` (string or tuple): target address.
+                - `address` (str or tuple): target address.
                 - `certificate` (:class:`Certificate`): provider's certificate instance.
                 - `cert_params` (kwargs): :class:`Certificate` arguments, used if `certificate` instance is not given.
         """
@@ -466,7 +468,7 @@ class Session(object):
                 - `feedback_production` -- ``("gateway.sandbox.push.apple.com", 2196)``
 
             :Arguments:
-                - `address` (string or tuple): target address.
+                - `address` (str or tuple): target address.
                 - `certificate` (:class:`Certificate`): provider's certificate instance.
                 - `cert_params` (kwargs): :class:`Certificate` arguments, used if `certificate` instance is not given.
         """
@@ -489,7 +491,7 @@ class Session(object):
         return self._connections[key]
 
     def outdate(self, delta):
-        """ Close open connections that are not used in more than `delta` time.
+        """ Close open connections that are not used in more than ``delta`` time.
 
             You may call this method in a separate thread or run it in some
             periodic task. If you don't, then all connections will remain open
@@ -497,20 +499,27 @@ class Session(object):
             your open server connections.
 
             :Arguments:
-                `delta` (`timedelta`): maximum age of unused connection.
+                `delta` (``timedelta``): maximum age of unused connection.
+
+            :Returns:
+                Number of closed connections.
         """
         # no need to lock _connections, Python GIL will ensures exclusive access
         to_check = self._connections.values()
 
         # any new connection added to _connections in parallel are assumed to be
         # within delta.
+        ret = 0
         for con in to_check:
             if con.try_acquire():
                 try:
                     if not con.is_closed() and con.is_outdated(delta):
                         con.close()
+                        ret += 1
                 finally:
                     con.release()
+
+        return ret
 
     def shutdown(self):
         """ Shutdown all connections.
@@ -661,19 +670,22 @@ class Message(object):
     """ The notification message. """
 
     def __init__(self, tokens, alert, badge=None, sound=None, expiry=None, **extra):
-        """ The push notification.
+        """ The push notification to one or more device tokens.
 
             Read more `about payload
             <http://developer.apple.com/library/mac/#documentation/NetworkingInternet/Conceptual/RemoteNotificationsPG/ApplePushService/ApplePushService.html#//apple_ref/doc/uid/TP40008194-CH100-SW9>`_.
 
             :Arguments:
-                - `tokens` (list): set of device tokens where to message will be sent.
-                - `alert` (string or dict): the message; read APNs manual for recognized dict keys (localized messages).
+                - `tokens` (str or list): set of device tokens where to message will be sent.
+                - `alert` (str or dict): the message; read APNs manual for recognized dict keys (localized messages).
                 - `badge` (int): badge number over the application icon.
-                - `sound` (string): sound file to play on arrival.
+                - `sound` (str): sound file to play on arrival.
                 - `expiry` (int or datetime or timedelta): timestamp when message will expire
                 - `extra` (kwargs): extra payload key-value pairs.
         """
+        if isinstance(tokens, basestring):
+            tokens = [tokens]
+
         self._tokens = tokens
         self.alert = alert
         self.badge = badge
@@ -695,6 +707,46 @@ class Message(object):
 
         if 'aps' in self.extra:
             raise ValueError("Extra payload data may not contain 'aps' key.")
+
+    def __getstate__(self):
+        """ Returns ``dict`` with ``__init__`` arguments.
+
+            If you use ``pickle``, then simply pickle/unpickle the message object.
+            If you use something else, like JSON, then::
+                
+                # obtain state dict from message
+                state = message.__getstate__()
+                # send/store the state
+                # recover state and restore message
+                message_copy = Message(**state)
+
+            .. note::
+                The message keeps ``expiry`` internally as a timestamp
+                (integer).  So, if values of all other arguments are JSON
+                serializable, then the returned state must be JSON
+                serializable.  If you get ``TypeError`` when you instantiate
+                ``Message`` from JSON recovered state, then make sure the keys
+                are ``str``, not ``unicode``.
+
+            :Returns:
+                `kwargs` for `Message` constructor.
+        """
+        ret = dict((key, getattr(self, key)) for key in ('tokens', 'alert', 'badge', 'sound', 'expiry'))
+        if self.extra:
+            ret.update(self.extra)
+
+        return ret
+    
+    def __setstate__(self, state):
+        """ Overwrite message state with given kwargs. """
+        self.extra = {}
+        for key, val in state.iteritems():
+            if key == 'tokens':
+                self._tokens = val
+            elif key in ('alert', 'badge', 'sound', 'expiry'):
+                setattr(self, key, state[key])
+            else:
+                self.extra[key] = val
 
     @property
     def tokens(self):

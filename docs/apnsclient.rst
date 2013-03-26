@@ -20,7 +20,7 @@ extend this library. Check :ref:`intro` for usage examples.
     :members: send, feedback
 
 .. autoclass:: Message
-    :members: tokens
+    :members: tokens, __getstate__
 
 .. autoclass:: Result
     :members: errors, failed, needs_retry, retry
