@@ -406,8 +406,8 @@ class Session(object):
     ADDRESSES = {
         "push_sandbox": ("gateway.sandbox.push.apple.com", 2195),
         "push_production": ("gateway.push.apple.com", 2195),
-        "feedback_sandbox": ("gateway.push.apple.com", 2196),
-        "feedback_production": ("gateway.sandbox.push.apple.com", 2196),
+        "feedback_sandbox": ("feedback.sandbox.push.apple.com", 2196),
+        "feedback_production": ("feedback.push.apple.com", 2196),
     }
     
     def __init__(self):
