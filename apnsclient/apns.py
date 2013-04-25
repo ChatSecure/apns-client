@@ -678,7 +678,7 @@ class Message(object):
             :Arguments:
                 - `tokens` (str or list): set of device tokens where to message will be sent.
                 - `alert` (str or dict): the message; read APNs manual for recognized dict keys (localized messages).
-                - `badge` (int): badge number over the application icon.
+                - `badge` (int or str): badge number over the application icon or "
                 - `sound` (str): sound file to play on arrival.
                 - `expiry` (int or datetime or timedelta): timestamp when message will expire
                 - `extra` (kwargs): extra payload key-value pairs.
@@ -761,7 +761,7 @@ class Message(object):
         }
 
         if self.badge is not None:
-            aps['badge'] = int(self.badge)
+            aps['badge'] = self.badge
 
         if self.sound is not None:
             aps['sound'] = str(self.sound)
