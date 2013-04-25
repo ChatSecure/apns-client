@@ -1,5 +1,6 @@
-import os.path, sys
-sys.path.append(os.path.dirname(os.path.dirname(__file__)))
+if __name__ == '__main__':
+    import os.path, sys
+    sys.path.append(os.path.dirname(os.path.dirname(__file__)))
 
 import unittest, struct, pickle, json
 import time
