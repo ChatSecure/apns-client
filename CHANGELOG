@@ -1,6 +1,9 @@
+2013-05-15  Sardar Yumatov  <ja.doma@gmail.com>
+    * version 0.1.5
+    * apnsclient/apns.py: passphrase argument for Certificate/private-key
+
 2013-03-26  Sardar Yumatov  <ja.doma@gmail.com>
     * version 0.1.3
     * apnsclient/apns.py: fixed some bugs, improved imports for mock tests.
     * apnsclient/test.py: unittests
     * docs/apnsclient.rst: updated docs
-

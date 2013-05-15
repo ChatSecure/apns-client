@@ -38,7 +38,7 @@ __all__ = ('Certificate', 'Connection', 'Session', 'APNs', 'Message', 'Result')
 class Certificate(object):
     """ Certificate with private key. """
 
-    def __init__(self, cert_string=None, cert_file=None, key_string=None, key_file=None):
+    def __init__(self, cert_string=None, cert_file=None, key_string=None, key_file=None, passphrase=''):
         """ Provider's certificate and private key.
         
             Your certificate will probably contain the private key. Open it
@@ -48,11 +48,20 @@ class Certificate(object):
             not find the private key in your .pem file, then you should
             provide it with `key_string` or `key_file` argument.
 
+            .. note::
+                If your private key is secured by a passphrase, then `pyOpenSSL`
+                will query it from `stdin`. If your application is not running in
+                the interactive mode, then don't protect your private key with a
+                passphrase or use `passphrase` argument. The latter option is
+                probably a big mistake since you expose the passphrase in your
+                source code.
+
             :Arguments:
                 - `cert_string` (str): certificate in PEM format from string.
                 - `cert_file` (str): certificate in PEM format from file.
                 - `key_string` (str): private key in PEM format from string.
                 - `key_file` (str): private key in PEM format from file.
+                - `passphrase` (str): passphrase for your private key.
         """
         self._context = OpenSSL.SSL.Context(OpenSSL.SSL.SSLv3_METHOD)
         
@@ -67,12 +76,19 @@ class Certificate(object):
 
         if not key_string and not key_file:
             # OpenSSL is smart enought to locate private key in certificate
-            pk = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, cert_string)
+            pk = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, cert_string, passphrase)
             self._context.use_privatekey(pk)
-        elif key_file:
+        elif key_file and not passphrase:
             self._context.use_privatekey_file(key_file, OpenSSL.crypto.FILETYPE_PEM)
+                    
         else:
-            pk = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, key_string)
+            if key_file:
+                # key file is provided with passphrase. context.use_privatekey_file
+                # does not use passphrase, so we have to load the key file manually.
+                with open(key_file, 'rb') as fp:
+                    key_string = fp.read()
+
+            pk = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, key_string, passphrase)
             self._context.use_privatekey(pk)
 
         # check if we are not passed some garbage
