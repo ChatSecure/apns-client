@@ -49,7 +49,7 @@ established once you actually use it. Example of sending a message::
         print "Device faled: {0}, reason: {1}".format(token, errmsg)
 
     # Check failures not related to devices.
-    for code, errmsg in res.errors.items():
+    for code, errmsg in res.errors:
         print "Error: ", errmsg
 
     # Check if there are tokens that can be retried
