@@ -685,7 +685,7 @@ class APNs(object):
 class Message(object):
     """ The notification message. """
 
-    def __init__(self, tokens, alert, badge=None, sound=None, expiry=None, **extra):
+    def __init__(self, tokens, alert=None, badge=None, sound=None, expiry=None, payload=None, **extra):
         """ The push notification to one or more device tokens.
 
             Read more `about payload
@@ -697,8 +697,18 @@ class Message(object):
                 - `badge` (int or str): badge number over the application icon or "
                 - `sound` (str): sound file to play on arrival.
                 - `expiry` (int or datetime or timedelta): timestamp when message will expire
+                - `payload` (dict): JSON-compatible dictionary with the
+                                    complete message payload. If supplied, it
+                                    is given instead of all the other, more
+                                    specific parameters.
                 - `extra` (kwargs): extra payload key-value pairs.
         """
+        if (payload is not None and (
+                alert is not None or badge is not None or sound is not None)):
+            # Raise an error if both `payload` and the more specific
+            # parameters are supplied.
+            raise ValueError("Payload specified together with alert/badge/sound.")
+
         if isinstance(tokens, basestring):
             tokens = [tokens]
 
@@ -706,6 +716,7 @@ class Message(object):
         self.alert = alert
         self.badge = badge
         self.sound = sound
+        self._payload = payload
         self.extra = extra
 
         if expiry is None:
@@ -769,8 +780,13 @@ class Message(object):
         """ List target device tokens. """
         return self._tokens
 
-    def batch(self, packet_size):
-        """ Returns binary serializer. """
+    @property
+    def payload(self):
+        """ Returns the payload content as a Python dict. """
+
+        if self._payload is not None:
+            return self._payload
+        
         aps = {
             # XXX: we do not check alert, which could be string or dict with extra options
             'alert': self.alert
@@ -789,7 +805,9 @@ class Message(object):
         if self.extra:
             ret.update(self.extra)
 
-        payload = json.dumps(ret)
+    def batch(self, packet_size):
+        """ Returns binary serializer. """
+        payload = json.dumps(self.payload)
         return Batch(self._tokens, payload, self.expiry, packet_size)
 
     def retry(self, failed_index, include_failed):
