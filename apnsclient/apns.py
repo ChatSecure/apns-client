@@ -782,8 +782,7 @@ class Message(object):
 
     @property
     def payload(self):
-        """ Returns the payload content as a Python dict. """
-
+        """ Returns the payload content as a `dict`. """
         if self._payload is not None:
             return self._payload
         
@@ -804,6 +803,8 @@ class Message(object):
         
         if self.extra:
             ret.update(self.extra)
+
+        return ret
 
     def batch(self, packet_size):
         """ Returns binary serializer. """

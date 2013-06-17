@@ -1,3 +1,7 @@
+2013-06-18  Sardar Yumatov  <ja.doma@gmail.com>
+    * version 0.1.6
+    * apnsclient/apns.py: support for raw payload dict
+
 2013-05-15  Sardar Yumatov  <ja.doma@gmail.com>
     * version 0.1.5
     * apnsclient/apns.py: passphrase argument for Certificate/private-key
