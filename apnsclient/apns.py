@@ -222,29 +222,43 @@ class Connection(object):
         """
         return self._socket is None
 
+    def _create_socket(self):
+        """ Create new plain TCP socket. Hook that you may override. """
+        return socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
     def configure_socket(self):
         """ Hook to configure socket parameters. """
         pass
+
+    def _create_openssl_connection(self):
+        """ Create new OpenSSL connection. Hook that you may override. """
+        return OpenSSL.SSL.Connection(self._certificate.get_context(), self._socket)
 
     def configure_connection(self):
         """ Hookt to configure SSL connection. """
         pass
 
-    def refresh(self):
-        """ Ensure socket is still alive. Reopen if needed. """
+    def _connect_and_handshake(self):
+        """ Connect to APNs and SSL handshake. Hook that you may override. """
+        self._connection.connect(self._address)
+        self._connection.do_handshake()
+
+    def _ensure_socket_open(self):
+        """ Refreshes socket. Hook that you may override. """
         if self._socket is None:
             try:
-                self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                self._socket = self._create_socket()
                 self.configure_socket()
-
-                self._connection = OpenSSL.SSL.Connection(self._certificate.get_context(), self._socket)
+                self._connection = self._create_openssl_connection()
                 self.configure_connection()
-                self._connection.connect(self._address)
-                self._connection.do_handshake()
+                self._connect_and_handshake()
             except Exception:
                 self.close()
                 raise
 
+    def refresh(self):
+        """ Ensure socket is still alive. Reopen if needed. """
+        self._ensure_socket_open()
         self._readbuf = ""
         self._feedbackbuf = ""
         self._last_refresh = datetime.datetime.now()
