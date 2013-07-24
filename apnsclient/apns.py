@@ -822,7 +822,7 @@ class Message(object):
 
     def batch(self, packet_size):
         """ Returns binary serializer. """
-        payload = json.dumps(self.payload)
+        payload = json.dumps(self.payload, separators=(',',':'), ensure_ascii=False)
         return Batch(self._tokens, payload, self.expiry, packet_size)
 
     def retry(self, failed_index, include_failed):
