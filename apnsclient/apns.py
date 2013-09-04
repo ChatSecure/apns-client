@@ -38,7 +38,7 @@ __all__ = ('Certificate', 'Connection', 'Session', 'APNs', 'Message', 'Result')
 class Certificate(object):
     """ Certificate with private key. """
 
-    def __init__(self, cert_string=None, cert_file=None, key_string=None, key_file=None, passphrase=''):
+    def __init__(self, cert_string=None, cert_file=None, key_string=None, key_file=None, passphrase=None):
         """ Provider's certificate and private key.
         
             Your certificate will probably contain the private key. Open it
@@ -76,7 +76,11 @@ class Certificate(object):
 
         if not key_string and not key_file:
             # OpenSSL is smart enought to locate private key in certificate
-            pk = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, cert_string, passphrase)
+            args = [OpenSSL.crypto.FILETYPE_PEM, cert_string]
+            if passphrase is not None:
+                args.append(passphrase)
+
+            pk = OpenSSL.crypto.load_privatekey(*args)
             self._context.use_privatekey(pk)
         elif key_file and not passphrase:
             self._context.use_privatekey_file(key_file, OpenSSL.crypto.FILETYPE_PEM)
@@ -88,7 +92,11 @@ class Certificate(object):
                 with open(key_file, 'rb') as fp:
                     key_string = fp.read()
 
-            pk = OpenSSL.crypto.load_privatekey(OpenSSL.crypto.FILETYPE_PEM, key_string, passphrase)
+            args = [OpenSSL.crypto.FILETYPE_PEM, key_string]
+            if passphrase is not None:
+                args.append(passphrase)
+
+            pk = OpenSSL.crypto.load_privatekey(*args)
             self._context.use_privatekey(pk)
 
         # check if we are not passed some garbage
