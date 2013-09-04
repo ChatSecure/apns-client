@@ -706,6 +706,11 @@ class APNs(object):
 
 class Message(object):
     """ The notification message. """
+    # JSON serialization parameters. Assume UTF-8 by default.
+    json_parameters = {
+        'separators': (',',':'),
+        'ensure_ascii': False,
+    }
 
     def __init__(self, tokens, alert=None, badge=None, sound=None, expiry=None, payload=None, **extra):
         """ The push notification to one or more device tokens.
@@ -726,10 +731,10 @@ class Message(object):
                 - `extra` (kwargs): extra payload key-value pairs.
         """
         if (payload is not None and (
-                alert is not None or badge is not None or sound is not None)):
+                alert is not None or badge is not None or sound is not None or extra)):
             # Raise an error if both `payload` and the more specific
             # parameters are supplied.
-            raise ValueError("Payload specified together with alert/badge/sound.")
+            raise ValueError("Payload specified together with alert/badge/sound/extra.")
 
         if isinstance(tokens, basestring):
             tokens = [tokens]
@@ -738,8 +743,8 @@ class Message(object):
         self.alert = alert
         self.badge = badge
         self.sound = sound
-        self._payload = payload
         self.extra = extra
+        self._payload = payload
 
         if expiry is None:
             # 0 means do not store messages at all. so we have to choose default
@@ -780,6 +785,9 @@ class Message(object):
             :Returns:
                 `kwargs` for `Message` constructor.
         """
+        if self._payload is not None:
+            return {'payload': self._payload}
+
         ret = dict((key, getattr(self, key)) for key in ('tokens', 'alert', 'badge', 'sound', 'expiry'))
         if self.extra:
             ret.update(self.extra)
@@ -788,14 +796,24 @@ class Message(object):
     
     def __setstate__(self, state):
         """ Overwrite message state with given kwargs. """
+        self._tokens = state['tokens']
         self.extra = {}
-        for key, val in state.iteritems():
-            if key == 'tokens':
-                self._tokens = val
-            elif key in ('alert', 'badge', 'sound', 'expiry'):
-                setattr(self, key, state[key])
-            else:
-                self.extra[key] = val
+        self.expiry = state['expiry']
+
+        if 'payload' in state:
+            self._payload = state['payload']
+            self.alert = None
+            self.badge = None
+            self.sound = None
+        else:
+            self._payload = None
+            for key, val in state.iteritems():
+                if key in ('tokens', 'expiry'): # already set
+                    pass
+                elif key in ('alert', 'badge', 'sound'):
+                    setattr(self, key, state[key])
+                else:
+                    self.extra[key] = val
 
     @property
     def tokens(self):
@@ -828,9 +846,13 @@ class Message(object):
 
         return ret
 
+    def get_json_payload(self):
+        """ Convert message to JSON payload, acceptable by APNs. """
+        return json.dumps(self.payload, **self.json_parameters)
+
     def batch(self, packet_size):
         """ Returns binary serializer. """
-        payload = json.dumps(self.payload, separators=(',',':'), ensure_ascii=False)
+        payload = self.get_json_payload()
         return Batch(self._tokens, payload, self.expiry, packet_size)
 
     def retry(self, failed_index, include_failed):

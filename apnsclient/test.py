@@ -90,7 +90,7 @@ class APNsClientMessageTest(unittest.TestCase):
         cuni = pickle.loads(suni)
         cmulti = pickle.loads(smulti)
 
-        for key in ('tokens', 'alert', 'badge', 'sound', 'expiry', 'extra'):
+        for key in ('tokens', 'alert', 'badge', 'sound', 'expiry', 'extra', '_payload'):
             self.assertEqual(getattr(self.uni, key), getattr(cuni, key))
             self.assertEqual(getattr(self.multi, key), getattr(cmulti, key))
 
@@ -107,7 +107,7 @@ class APNsClientMessageTest(unittest.TestCase):
         cuni = Message(**suni)
         cmulti = Message(**smulti)
 
-        for key in ('tokens', 'alert', 'badge', 'sound', 'expiry', 'extra'):
+        for key in ('tokens', 'alert', 'badge', 'sound', 'expiry', 'extra', '_payload'):
             self.assertEqual(getattr(self.uni, key), getattr(cuni, key))
             self.assertEqual(getattr(self.multi, key), getattr(cmulti, key))
 
@@ -165,6 +165,27 @@ class APNsClientMessageTest(unittest.TestCase):
         self.assertEqual(self.multi.tokens[1:], rmulti.tokens)
         for key in ('alert', 'badge', 'sound', 'expiry', 'extra'):
             self.assertEqual(getattr(self.multi, key), getattr(rmulti, key))
+
+    def test_non_ascii(self):
+        # meta-data size
+        empty_msg_size = len(Message(tokens=[], alert="").get_json_payload())
+
+        MAX_UTF8_SIZE = 3  # size of maximum utf8 encoded character in bytes
+        chinese_str = (
+            u'\u5187\u869a\u5487\u6b8f\u5cca\u9f46\u9248\u6935\u4ef1\u752a'
+            u'\u67cc\u521e\u62b0\u530a\u6748\u9692\u5c6e\u653d\u588f\u6678')
+        chinese_msg_size = len(Message(tokens=[], alert=chinese_str).get_json_payload())
+        self.assertLessEqual(
+            chinese_msg_size,
+            empty_msg_size + len(chinese_str) * MAX_UTF8_SIZE)
+
+        MAX_EMOJI_SIZE = 4  # size of maximum utf8 encoded character in bytes
+        # emoji
+        emoji_str = (u'\U0001f601\U0001f603\U0001f638\U00002744')
+        emoji_msg_size = len(Message(tokens="", alert=emoji_str).get_json_payload())
+        self.assertLessEqual(
+            emoji_msg_size,
+            empty_msg_size + len(emoji_str) * MAX_EMOJI_SIZE)
 
 
 class APNsClientResultTest(unittest.TestCase):
