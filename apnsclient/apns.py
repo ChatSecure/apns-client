@@ -847,8 +847,12 @@ class Message(object):
         return ret
 
     def get_json_payload(self):
-        """ Convert message to JSON payload, acceptable by APNs. """
-        return json.dumps(self.payload, **self.json_parameters)
+        """ Convert message to JSON payload, acceptable by APNs. Must return byte string. """
+        ret = json.dumps(self.payload, **self.json_parameters)
+        if isinstance(ret, basestring):
+            ret = ret.encode("utf-8")
+
+        return ret
 
     def batch(self, packet_size):
         """ Returns binary serializer. """

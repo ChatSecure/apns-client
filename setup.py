@@ -10,7 +10,7 @@ def read(fname):
 
 setup(
     name='apns-client',
-    version='0.1.6',
+    version='0.1.7',
     author='Sardar Yumatov',
     author_email='ja.doma@gmail.com',
     url='https://bitbucket.org/sardarnl/apns-client',

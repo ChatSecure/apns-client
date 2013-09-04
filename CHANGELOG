@@ -1,3 +1,8 @@
+2013-09-04  Sardar Yumatov  <ja.doma@gmail.com>
+    * version 0.1.7
+    * apnsclient/apns.py: UTF-8 encoding for JSON payload.
+                          Non-set passphrase for private keys.
+
 2013-06-18  Sardar Yumatov  <ja.doma@gmail.com>
     * version 0.1.6
     * apnsclient/apns.py: support for raw payload dict.
