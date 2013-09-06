@@ -5,5 +5,5 @@ The following authors have contributed to this project:
 
     * Tom Berger <tom.berger@gmail.com>
       The idea and patch for custom payload.
-    * Matthew Crenshaw and Doody Parizada
+    * Matthew Crenshaw <sgt@squig.gs> and Doody Parizada
       UTF-8 support for JSON payloads.
