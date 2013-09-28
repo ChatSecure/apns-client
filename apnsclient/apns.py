@@ -786,7 +786,11 @@ class Message(object):
                 `kwargs` for `Message` constructor.
         """
         if self._payload is not None:
-            return {'payload': self._payload}
+            return {
+                'payload': self._payload,
+                'tokens': self.tokens,
+                'expiry': self.expiry,
+            }
 
         ret = dict((key, getattr(self, key)) for key in ('tokens', 'alert', 'badge', 'sound', 'expiry'))
         if self.extra:

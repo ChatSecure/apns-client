@@ -81,35 +81,44 @@ class APNsClientMessageTest(unittest.TestCase):
     def setUp(self):
         self.uni = Message("0123456789ABCDEF", alert="alert", badge=10)
         self.multi = Message(["0123456789ABCDEF", "FEDCBA9876543210"], alert="my alerrt", sound="cool.mp3", my_extra=15)
+        self.payload = Message(["0123456789ABCDEF", "FEDCBA9876543210"], payload=self.uni.payload)
 
     def test_serialization(self):
         # standard pickle
         suni = pickle.dumps(self.uni)
         smulti = pickle.dumps(self.multi)
+        spayload = pickle.dumps(self.payload)
         
         cuni = pickle.loads(suni)
         cmulti = pickle.loads(smulti)
+        cpayload = pickle.loads(spayload)
 
         for key in ('tokens', 'alert', 'badge', 'sound', 'expiry', 'extra', '_payload'):
             self.assertEqual(getattr(self.uni, key), getattr(cuni, key))
             self.assertEqual(getattr(self.multi, key), getattr(cmulti, key))
+            self.assertEqual(getattr(self.payload, key), getattr(cpayload, key))
 
         # custom
         suni = self.uni.__getstate__()
         smulti = self.multi.__getstate__()
+        spayload = self.payload.__getstate__()
         # JSON/XML/etc and store/send
         suni = json.dumps(suni)
         smulti = json.dumps(smulti)
+        spayload = json.dumps(spayload)
 
         suni = dict((k.encode("UTF-8"), v) for k, v in json.loads(suni).iteritems())
         smulti = dict((k.encode("UTF-8"), v) for k, v in json.loads(smulti).iteritems())
+        spayload = dict((k.encode("UTF-8"), v) for k, v in json.loads(spayload).iteritems())
 
         cuni = Message(**suni)
         cmulti = Message(**smulti)
+        cpayload = Message(**spayload)
 
         for key in ('tokens', 'alert', 'badge', 'sound', 'expiry', 'extra', '_payload'):
             self.assertEqual(getattr(self.uni, key), getattr(cuni, key))
             self.assertEqual(getattr(self.multi, key), getattr(cmulti, key))
+            self.assertEqual(getattr(self.payload, key), getattr(cpayload, key))
 
     def test_batch(self):
         # binary serialization in ridiculously small buffer =)
