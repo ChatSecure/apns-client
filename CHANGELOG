@@ -1,3 +1,7 @@
+2013-09-29  Sardar Yumatov  <ja.doma@gmail.com>
+    * version 0.1.8
+    * apnsclient/apns.py: minor fixes for raw _payload users.
+
 2013-09-04  Sardar Yumatov  <ja.doma@gmail.com>
     * version 0.1.7
     * apnsclient/apns.py: UTF-8 encoding for JSON payload.
